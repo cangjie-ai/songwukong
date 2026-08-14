@@ -111,7 +111,8 @@ const SFX = {
   freeze() { this.tone(880, 0.4, 'sine', 0.08, -600); },
   shot() { this.tone(600, 0.06, 'square', 0.05, -300); },
   roar() { this.tone(70, 0.6, 'sawtooth', 0.18, -30); this.noise(0.4, 0.12); },
-  die() { this.tone(220, 0.5, 'triangle', 0.1, -180); }
+  die() { this.tone(220, 0.5, 'triangle', 0.1, -180); },
+  cloud() { this.tone(300, 0.25, 'sine', 0.06, 240); this.noise(0.15, 0.05); }
 };
 
 // ============ 平台物理（玩家与敌人共用） ============

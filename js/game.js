@@ -80,6 +80,8 @@ const Game = {
   // ---------- 更新 ----------
   tick(dt) {
     this.time += dt;
+    if (Input.wasPressed('KeyM')) Music.muted = !Music.muted;
+    Music.update(this.state === 'play' || this.state === 'clear' ? this.level.theme : null);
     if (this.hitPause > 0) { this.hitPause -= dt; this.render(); return; }
     this.stateT += dt;
 
@@ -240,6 +242,15 @@ const Game = {
     ctx.fillStyle = '#c9a05a';
     ctx.fillRect(120, 54, 90 * clamp(p.focusCharge / 100, 0, 1), 6);
 
+    // 云气（筋斗云）
+    ctx.fillStyle = 'rgba(40,50,60,0.8)';
+    ctx.fillRect(28, 70, 182, 6);
+    ctx.fillStyle = p.cloud > 15 ? '#ffdf8a' : '#8a7550';
+    ctx.fillRect(28, 70, 182 * clamp(p.cloud / 100, 0, 1), 6);
+    ctx.font = '11px ' + FONT_TITLE; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(230,215,180,0.5)';
+    ctx.fillText('筋斗云 S', 216, 78);
+
     // 葫芦
     ctx.fillStyle = '#8a3b2a';
     ctx.beginPath(); ctx.arc(40, 96, 8, 0, Math.PI * 2); ctx.arc(40, 85, 5.5, 0, Math.PI * 2); ctx.fill();
@@ -356,10 +367,10 @@ const Game = {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e8d9b8';
     ctx.font = '110px ' + FONT_TITLE;
-    ctx.fillText('颂 · 悟 空', VIEW_W / 2, 280);
+    ctx.fillText('孙 悟 空', VIEW_W / 2, 280);
     ctx.fillStyle = '#c9a05a';
     ctx.font = '26px ' + FONT_TITLE;
-    ctx.fillText('SONG WUKONG —— 二维动作 · 黑风山篇', VIEW_W / 2, 380);
+    ctx.fillText('SUN WUKONG —— 二维动作 · 黑风山篇', VIEW_W / 2, 380);
 
     ctx.globalAlpha = 0.7 + Math.sin(this.time * 3) * 0.3;
     ctx.fillStyle = '#e8b33a';
@@ -369,7 +380,7 @@ const Game = {
 
     ctx.fillStyle = 'rgba(230,215,180,0.45)';
     ctx.font = '16px ' + FONT_TITLE;
-    ctx.fillText('A / D 移动 · Space 跳跃 · J 轻棍(攒棍势) · K 重棍(耗棍势) · L 翻滚 · U 定身术 · H 葫芦回血', VIEW_W / 2, 620);
+    ctx.fillText('A / D 移动 · Space 跳跃 · J 轻棍(攒棍势) · K 重棍(耗棍势) · L 翻滚 · S 筋斗云 · U 定身术 · H 葫芦回血 · M 静音', VIEW_W / 2, 620);
   }
 };
 

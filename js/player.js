@@ -25,6 +25,7 @@ class Player {
     this.invuln = 0; this.dodgeCD = 0; this.spellCD = 0; this.dodgeDir = 1;
     this.coyote = 0; this.jumpBuf = 0; this.runPhase = 0;
     this.deadTimer = 0;
+    this.cloud = 100;                             // 筋斗云云气（飞行消耗，落地回复）
   }
 
   get dead() { return this.state === 'dead'; }
@@ -66,11 +67,16 @@ class Player {
         break;
       case 'attack': this.updateAttack(dt, LIGHT_COMBO[this.attackIdx], game); break;
       case 'heavy': this.updateAttack(dt, HEAVY, game); break;
+      case 'cloud': this.updateCloud(dt, game); break;
       default: this.updateNormal(dt, game);
     }
 
     physicsStep(this, game.level, dt);
-    if (this.onGround) this.coyote = 0.1;
+    if (this.onGround) {
+      this.coyote = 0.1;
+      if (this.state === 'cloud') this.state = 'normal';                     // 贴地自动下云
+      else this.cloud = Math.min(100, this.cloud + 35 * dt);                 // 落地回复云气
+    }
 
     // 掉出世界的兜底（正常关卡地面连续，不应触发）
     if (this.y > 1000) { this.x = game.respawnX(); this.y = 300; this.vy = 0; }
@@ -91,6 +97,11 @@ class Player {
     if (Input.wasPressed('KeyJ')) this.startLight(game);
     else if (Input.wasPressed('KeyK')) this.startHeavy(game);
     else if (Input.wasPressed('KeyL', 'ShiftLeft', 'ShiftRight')) this.startDodge(mx);
+    else if (Input.wasPressed('KeyS') && this.cloud > 15) {
+      this.state = 'cloud'; this.t = 0; this.vy = 0;
+      SFX.cloud();
+      for (let i = 0; i < 10; i++) game.particles.push(new Particle(this.x + this.w / 2, this.y + this.h, rand(-60, 60), rand(-40, 20), 0.5, 4, 'rgba(255,230,160,0.9)'));
+    }
     else if (Input.wasPressed('KeyH') && this.gourds > 0 && this.onGround) {
       this.gourds--; this.state = 'drink'; this.t = 0; this.healed = false; this.vx = 0;
     }
@@ -98,6 +109,26 @@ class Player {
       this.state = 'cast'; this.t = 0; this.spellCD = 12;
       game.castFreeze(this.x + this.w / 2, this.y + this.h / 2);
     }
+  }
+
+  // 筋斗云飞行：A/D 平移，W/Space 升，↓ 降；再按 S 或云气耗尽下云；J/K/L 下云接招
+  updateCloud(dt, game) {
+    this.t += dt;
+    this.cloud -= 22 * dt;
+    const L = Input.isDown('KeyA', 'ArrowLeft'), R = Input.isDown('KeyD', 'ArrowRight');
+    const mx = (R ? 1 : 0) - (L ? 1 : 0);
+    this.vx = mx * 420;
+    if (mx !== 0) this.facing = mx;
+    const up = Input.isDown('KeyW', 'Space', 'ArrowUp'), dn = Input.isDown('ArrowDown');
+    this.vy = up ? -300 : dn ? 300 : Math.sin(this.t * 4) * 18;   // 无输入时悬浮微漾
+    if (this.y < 40 && this.vy < 0) this.vy = 0;                  // 天花板
+    // 云尾迹
+    if (Math.random() < 0.6) game.particles.push(new Particle(this.x + this.w / 2 - this.facing * 22, this.y + this.h + 2, rand(-30, 10) - this.vx * 0.08, rand(-8, 26), 0.4, 4, 'rgba(255,230,160,0.85)'));
+
+    if (Input.wasPressed('KeyS') || this.cloud <= 0) { this.state = 'normal'; SFX.swing(); }
+    else if (Input.wasPressed('KeyJ')) { this.state = 'normal'; this.startLight(game); }
+    else if (Input.wasPressed('KeyK')) { this.state = 'normal'; this.startHeavy(game); }
+    else if (Input.wasPressed('KeyL', 'ShiftLeft', 'ShiftRight')) { this.state = 'normal'; this.startDodge(mx); }
   }
 
   startLight(game, chain = false) {
@@ -197,6 +228,23 @@ class Player {
     const moving = Math.abs(this.vx) > 30 && this.onGround;
     const legSwing = moving ? Math.sin(this.runPhase) * 8 : 0;
     const bob = moving ? Math.abs(Math.sin(this.runPhase)) * 2 : 0;
+    const onCloud = this.state === 'cloud';
+
+    // 筋斗云（画在身体下方）
+    if (onCloud) {
+      const puff = Math.sin(time * 5) * 2;
+      ctx.fillStyle = 'rgba(255,222,140,0.92)';
+      ctx.beginPath();
+      ctx.ellipse(0, 4 + puff * 0.3, 30, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(-19, 7 + puff * 0.4, 15, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(19, 7 - puff * 0.3, 15, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,248,225,0.85)';
+      ctx.beginPath();
+      ctx.ellipse(-6, puff * 0.2, 14, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(10, 2, 10, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // 尾巴
     ctx.strokeStyle = '#4a3626'; ctx.lineWidth = 5; ctx.lineCap = 'round';
@@ -205,10 +253,15 @@ class Player {
     ctx.quadraticCurveTo(-30, -30 + Math.sin(time * 4) * 4, -26, -52 + Math.sin(time * 3) * 3);
     ctx.stroke();
 
-    // 腿
+    // 腿（乘云时盘腿）
     ctx.strokeStyle = '#2e2218'; ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(-5, -24); ctx.lineTo(-5 - legSwing, 0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(6, -24); ctx.lineTo(6 + legSwing, 0); ctx.stroke();
+    if (onCloud) {
+      ctx.beginPath(); ctx.moveTo(-5, -24); ctx.lineTo(-15, -13); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6, -24); ctx.lineTo(15, -13); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(-5, -24); ctx.lineTo(-5 - legSwing, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(6, -24); ctx.lineTo(6 + legSwing, 0); ctx.stroke();
+    }
 
     // 躯干（毛皮 + 红披巾）
     ctx.fillStyle = '#4a3626';
